@@ -18,7 +18,7 @@ import asyncio
 import pygame as pg
 from entities import Entity
 from players import Player
-from renderer import rayCaster, drawSprite, render2D
+from renderer import rayCaster, render2D
 from maps import read_map
 
 pg.init()
@@ -52,18 +52,17 @@ async def main():
     castle = pg.image.load('assets/textures/castle.jpg').convert()
     block = pg.image.load('assets/textures/block.jpg').convert()
     cloud = pg.image.load('assets/textures/cloud.png').convert_alpha()
-
-    goomba = [pg.image.load('assets/textures/goomba front.png').convert_alpha(),
-              pg.image.load('assets/textures/goomba back.png').convert_alpha()]
-    koopa = [pg.image.load('assets/textures/koopa front.png').convert_alpha(),
-              pg.image.load('assets/textures/koopa back.png').convert_alpha(),
-              pg.image.load('assets/textures/koopa slide.png').convert_alpha()]
-    mushroom = pg.image.load('assets/textures/mushroom.png').convert_alpha()
-    flower = pg.image.load('assets/textures/flower.png').convert_alpha()
     
-    fireball = [pg.image.load('assets/textures/fireball.png').convert_alpha()]*3
-    
-    sprites = [goomba, koopa, mushroom, flower, fireball]
+    sprites = { 'goomba': [pg.image.load('assets/textures/goomba front.png').convert_alpha(),
+                           pg.image.load('assets/textures/goomba back.png').convert_alpha(),
+                           pg.image.load('assets/textures/goomba back.png').convert_alpha()],
+                'koopa': [pg.image.load('assets/textures/koopa front.png').convert_alpha(),
+                          pg.image.load('assets/textures/koopa back.png').convert_alpha(),
+                          pg.image.load('assets/textures/koopa slide.png').convert_alpha()], 
+                'mushroom': [pg.image.load('assets/textures/mushroom.png').convert_alpha()], 
+                'flower': [pg.image.load('assets/textures/flower.png').convert_alpha()], 
+                'fireball': [pg.image.load('assets/textures/fireball.png').convert_alpha()]
+            }
 
     sky = pg.transform.scale(pg.image.load('assets/textures/skybox.jpg').convert(), (horizontal_res*2, 6*vertical_res))
     textures = [cloud, floor, mistery, wall, block, pipe, pipetop, door, castle, nomistery, pipehole, cloud]
@@ -77,14 +76,14 @@ async def main():
     while True:
         player.elapsed_time = clock.tick(60)/1000
         player.total_time += player.elapsed_time
-        p_mouse, pressed_keys, jumped = Inputs()
-        player.update(mapa, p_mouse, pressed_keys, jump, jumped, entities, GetTile)
+        # p_mouse, pressed_keys = Inputs()
+        player.update(mapa, jump, entities, GetTile)
         frame = rayCaster(player, mapa, frame, horizontal_res, vertical_res, mod, textures, sky, step, GetTile)
         
         for i in range(len(entities)):
             if entities[i].status != 'dead':
-                sprite = entities[i].sprite(sprites, player.total_time)
-                frame = drawSprite(frame, sprite, player, entities[i], horizontal_res, vertical_res, player.rot, mapa)
+                # sprite = entities[i].sprite(sprites, player.total_time)
+                entities[i].renderSprite(frame, sprites, player, horizontal_res, vertical_res, mapa)
                 entities[i].update(mapa, player, entities, GetTile)
                 # soft sort entities for drawing, may take a few frames...
                 if i > 0 and entities[i].dist2player > entities[i-1].dist2player:
@@ -119,19 +118,6 @@ async def main():
 def GetTile(x, y, mapa):
     if x < 0 or y < 0 or x > len(mapa) or y > len(mapa[0]): return 0
     else: return mapa[int(x)][int(y)]
-
-def Inputs():
-    if pg.mouse.get_focused():
-        p_mouse = pg.mouse.get_rel()
-    else:
-        p_mouse = [0, 0]
-    
-    pressed_keys = pg.key.get_pressed()
-    jumped = False
-    if pressed_keys[pg.K_SPACE]:
-        jumped = True
-    
-    return p_mouse, pressed_keys, jumped
 
 asyncio.run( main() )
 

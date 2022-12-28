@@ -1,4 +1,5 @@
 from entities import Entity
+import pygame as pg
 
 class Player:
     def __init__(self):
@@ -13,22 +14,32 @@ class Player:
         self.timer = 0
         self.status = 2 # -1 dead, 0 tiny, 1 grown, 2 fireballs
         self.delta_player = 0.2
-        self.lives = 0
+        self.lives = 3
 
-    def update(self, mapa, p_mouse, pressed_keys, jump, jumped, entities, GetTile):
+    def update(self, mapa, jump, entities, GetTile):
         """Update the player's attributes based on input and elapsed time."""
+
+        pressed_keys = pg.key.get_pressed()
+
         # Update player rotation based on mouse input
-        if abs(p_mouse[1]) > 1:
-            rot = self.rot + min(max((-p_mouse[1])/400, -0.2), .2)
-            self.rot = max(min(rot, 1), -1)
-        if abs(p_mouse[0]) > 1:
-            roth = self.roth + min(max((-p_mouse[0])/400, -0.2), .2)
-            self.roth = max(min(roth, 0.5), -0.5)
-        
+        if pg.mouse.get_focused():
+            p_mouse = pg.mouse.get_rel()
+            if abs(p_mouse[1]) > 1:
+                rot = self.rot + min(max((-p_mouse[1])/400, -0.2), .2)
+                self.rot = max(min(rot, 1), -1)
+            if abs(p_mouse[0]) > 1:
+                roth = self.roth + min(max((-p_mouse[0])/400, -0.2), .2)
+                self.roth = max(min(roth, 0.5), -0.5)
+            # fireballs
+            if self.status == 2 and self.total_time - self.timer > 1 and (pressed_keys[ord('f')] or pg.mouse.get_pressed()[0]):
+                self.timer = self.total_time
+                entities.insert(0, Entity([5, self.x+1, self.y+0.1]))
+
         # Apply gravity to player
         self.vel_y -= self.elapsed_time*12
 
         # Update player velocity based on keyboard input
+        
         # Determine the player's forward velocity based on keyboard input
         forward = pressed_keys[ord('w')] - pressed_keys[ord('s')]       
 
@@ -38,7 +49,7 @@ class Player:
             if forward == 0:
                 self.vel_x = self.vel_x - self.elapsed_time*self.vel_x*15
             # Make the player jump if the jump key was pressed
-            if jumped:
+            if pressed_keys[pg.K_SPACE]:
                 jump.play()
                 self.vel_y = 7
             
@@ -60,15 +71,14 @@ class Player:
                 self.checkMistery(mapa, entities, GetTile)
             self.vel_y = 0
 
-        if (GetTile(newposx - self.delta_player, self.y, mapa) < 1 and GetTile(newposx + self.delta_player, self.y, mapa) < 1):
+        if (GetTile(newposx - self.delta_player, self.y, mapa) < 1 and GetTile(newposx + self.delta_player, self.y, mapa) < 1 and
+            GetTile(newposx, self.y - self.delta_player, mapa) < 1 and GetTile(newposx, self.y + self.delta_player, mapa) < 1):
             self.x = newposx
         else:
             self.vel_x = 0
             # print('xblocked')
         
-        if self.status == 2 and pressed_keys[ord('f')] and self.total_time - self.timer > 0.5:
-            self.timer = self.total_time
-            entities.insert(0, Entity([5, self.x+0.5, self.y]))
+        
 
     def checkMistery(self, mapa, entities, GetTile):
         if GetTile(self.x, self.y + 1, mapa) == 2:
