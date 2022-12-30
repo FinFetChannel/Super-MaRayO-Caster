@@ -1,31 +1,35 @@
 import pygame as pg
 import math
 
-types = ['goomba', 'koopa', 'mushroom', 'flower', 'fireball']
+types = ['goomba', 'koopa', 'mushroom', 'flower', 'fireball', 'life', 'star']
 
 class Entity:
     
     def __init__(self, data):
-        self.type = types[data[0]-1] # 1 goomba, 2 koopa, 3 mushroom, 4 flower
+        self.type = types[data[0]-1]
         self.x = data[1]
         self.y = data[2]
         self.vel_y = 0
         self.direction = -1
         self.dist2player = 1
-        
-        if self.type in ['mushroom', 'fireball']:
+        self.status = 'walking'
+
+        if self.type in ['mushroom', 'fireball', 'life', 'star']:
             self.direction = 1
-        if self.type in  ['goomba', 'koopa']:
-            self.status = 'walking'
+            
         if self.type == 'flower':
             self.status = 'sitting'
         if self.type == 'fireball':
             self.status = 'sliding'
             self.vel_y = 1
+        if self.type == 'star':
+            self.vel_y = 4
+
+        # print('creating', self.type)
         
     def update(self, mapa, player, entities, GetTile):
 
-        if self.dist2player < 12:
+        if self.dist2player < 14:
                              
             self.player_interactions(player, GetTile, mapa)
             
@@ -33,7 +37,7 @@ class Entity:
 
             newx = self.x
             if self.status == 'walking':
-                if self.dist2player < 4 and self.type in  ['goomba', 'koopa']:
+                if self.dist2player < 3 and self.type in  ['goomba', 'koopa']:
                     self.direction = int(math.copysign(1, player.x - self.x))
                 newx = self.x + self.direction*player.elapsed_time*2
             
@@ -46,21 +50,21 @@ class Entity:
                 
             newy = self.y + self.vel_y*player.elapsed_time*2
 
-            if (GetTile(newx, self.y, mapa) < 1 and 
-                (GetTile(newx, self.y-1, mapa) > 0 or self.status == 'sliding' or self.dist2player < 4)):
+            if (GetTile(newx, self.y, mapa) < 1 and (GetTile(newx, self.y-1, mapa) > 0 or
+                self.status == 'sliding' or self.dist2player < 10 or self.type == 'mushroom')):
                 self.x = newx
             elif self.type == 'fireball':
                 self.status = 'dead'
-            else:
+            elif GetTile(newx, self.y-1, mapa) > 0:
                 self.direction = -self.direction
             
             if newy - 0.25 < 0:
                 self.status = 'dead'
             elif GetTile(self.x, newy - 0.25, mapa) < 1:
                 self.y = newy
-            elif self.type == 'fireball':
+            elif self.type in ['fireball', 'star']:
                 self.vel_y *= -0.5
-                if abs(self.vel_y) < 0.1:
+                if abs(self.vel_y) < 0.1 and self.type == 'fireball':
                     self.status = 'dead'
             else:
                 self.vel_y = 0
@@ -73,11 +77,18 @@ class Entity:
                 self.status = 'dead'
                 if player.status < 2:
                     player.delta_player = 0.5
-                    player.y += 0.25
                     player.status += 1
                 else:
                     player.lives += 1
-
+            elif self.type == 'life':
+                self.status = 'dead'
+                player.lives += 1
+            elif self.type == 'star':
+                self.status = 'dead'
+                player.star = player.total_time
+            elif player.total_time - player.star < 20:
+                self.status = 'dying'
+                self.timer = player.total_time
             elif (player.vel_y < 0 and player.y - 0.2 > self.y) or (player.vel_y == 0 and self.status == 'sitting'):
                 player.vel_y *= -0.5
                 if self.type == 'goomba' and self.status != 'dying':
@@ -99,11 +110,15 @@ class Entity:
                     elif self.status == 'sliding':
                         self.status = 'sitting'
                         print('koopa sit')
+            elif player.total_time - player.hit > 5:
+                player.status -= 1
+                player.hit = player.total_time
+                print(player.status, player.lives)
     
     def entities_interactions(self, entities, player):
         for entity in entities:
             if ((self.x != entity.x or self.y != entity.y) and entity.dist2player < 20 and
-                entity.type != 'fireball' and (self.x - entity.x)**2 + (self.y - entity.y)**2 < 0.25):
+                entity.type != 'fireball' and (self.x - entity.x)**2 + (self.y - entity.y)**2 < 0.5):
                 
                 entity.status = 'dying'
                 entity.timer = player.total_time
@@ -112,7 +127,7 @@ class Entity:
                     
     def selectSprite(self, sprites):
         index = self.direction
-        if index == -1 or self.type in ['mushroom', 'flower', 'fireball']:
+        if index == -1 or self.type in ['mushroom', 'flower', 'fireball', 'life', 'star']:
             index = 0
         if self.type == 'koopa' and self.status in ['sliding', 'dying', 'sitting']:
             index = 2
@@ -152,7 +167,7 @@ class Entity:
                 elif int(player.total_time*4)%4 < 2 and self.status != 'dying': # sprite "animation"
                     selected_sprite = pg.transform.flip(selected_sprite, flip_x=True, flip_y=False)
 
-                scale = min(vertical_res, vertical_res/(dist2p*math.cos(angle2)))
+                scale =  vertical_res/(dist2p)#*math.cos(angle2)))
                 scaled_sprite = pg.transform.smoothscale(selected_sprite, (scale, scale))
                 
                 # Calculate screen coordinates of the sprite

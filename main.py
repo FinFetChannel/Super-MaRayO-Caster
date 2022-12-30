@@ -41,61 +41,52 @@ async def main():
     pg.mixer.music.load('assets/sounds/mario theme.ogg')
     pg.mixer.music.play(-1)
     jump = pg.mixer.Sound('assets/sounds/jump.wav')
-    wall = pg.image.load('assets/textures/wall.jpg').convert()
-    floor = pg.image.load('assets/textures/floor.jpg').convert()
-    pipe = pg.image.load('assets/textures/pipe.jpg').convert()
-    pipetop = pg.image.load('assets/textures/pipetop.jpg').convert()
-    pipehole = pg.image.load('assets/textures/pipehole.jpg').convert()
-    mistery = pg.image.load('assets/textures/mistery.jpg').convert()
-    nomistery = pg.image.load('assets/textures/nomistery.jpg').convert()
-    door = pg.image.load('assets/textures/door.jpg').convert()
-    castle = pg.image.load('assets/textures/castle.jpg').convert()
-    block = pg.image.load('assets/textures/block.jpg').convert()
-    cloud = pg.image.load('assets/textures/cloud.png').convert_alpha()
+        
+    textures, sprites = loadTexturesSprites(horizontal_res, vertical_res)
     
-    sprites = { 'goomba': [pg.image.load('assets/textures/goomba front.png').convert_alpha(),
-                           pg.image.load('assets/textures/goomba back.png').convert_alpha(),
-                           pg.image.load('assets/textures/goomba back.png').convert_alpha()],
-                'koopa': [pg.image.load('assets/textures/koopa front.png').convert_alpha(),
-                          pg.image.load('assets/textures/koopa back.png').convert_alpha(),
-                          pg.image.load('assets/textures/koopa slide.png').convert_alpha()], 
-                'mushroom': [pg.image.load('assets/textures/mushroom.png').convert_alpha()], 
-                'flower': [pg.image.load('assets/textures/flower.png').convert_alpha()], 
-                'fireball': [pg.image.load('assets/textures/fireball.png').convert_alpha()]
-            }
+    def loadLevel(path):
+        map_image = pg.image.load(path).convert()
+        mapa, entity_data = read_map(map_image)
+        entities = []
+        for entity in entity_data:
+            entities.append(Entity(entity))
+        
+        return mapa, entities, map_image
 
-    sky = pg.transform.scale(pg.image.load('assets/textures/skybox.jpg').convert(), (horizontal_res*2, 6*vertical_res))
-    textures = [cloud, floor, mistery, wall, block, pipe, pipetop, door, castle, nomistery, pipehole, cloud]
-
-    map_image = pg.image.load('assets/maps/map1.png').convert()
-    mapa, entity_data = read_map(map_image)
-    entities = []
-    for entity in entity_data:
-        entities.append(Entity(entity))
+    mapa, entities, map_image = loadLevel('assets/maps/map1.png')
 
     while True:
         player.elapsed_time = clock.tick(60)/1000
         player.total_time += player.elapsed_time
         # p_mouse, pressed_keys = Inputs()
         player.update(mapa, jump, entities, GetTile)
-        frame = rayCaster(player, mapa, frame, horizontal_res, vertical_res, mod, textures, sky, step, GetTile)
+        frame = rayCaster(player, mapa, frame, horizontal_res, vertical_res, mod, textures, step, GetTile)
         
+        popped = 0
         for i in range(len(entities)):
-            if entities[i].status != 'dead':
-                # sprite = entities[i].sprite(sprites, player.total_time)
-                entities[i].renderSprite(frame, sprites, player, horizontal_res, vertical_res, mapa)
-                entities[i].update(mapa, player, entities, GetTile)
-                # soft sort entities for drawing, may take a few frames...
-                if i > 0 and entities[i].dist2player > entities[i-1].dist2player:
-                    entities[i-1], entities[i] = entities[i], entities[i-1]
-            elif entities[i].status == 'dead':
-                entities.pop(i)
-                break
+            index = i + popped
+            entity = entities[index]
+            if entity.status != 'dead':
+                entity.renderSprite(frame, sprites, player, horizontal_res, vertical_res, mapa)
+                entity.update(mapa, player, entities, GetTile)
+               
+                if i > 0 and entity.dist2player > entities[index-1].dist2player:# soft sort entities for drawing
+                    entities[index-1], entities[index] = entities[index], entities[index-1] # may take a few frames...
+            
+            elif entities[index].status == 'dead':
+                entities.pop(index) # remove dead
+                popped -= 1
 
         if player.y < 0 or player.status < 0:
+            player.status = 0
             player.lives -= 1
             player.x = player.y = 3.5
             player.vel_x = player.vel_y = 0
+            mapa, entities, map_image = loadLevel('assets/maps/map1.png')
+
+            if player.lives < 1:
+                print('restart game')
+                player = Player()
 
         
         for event in pg.event.get():
@@ -119,7 +110,36 @@ def GetTile(x, y, mapa):
     if x < 0 or y < 0 or x > len(mapa) or y > len(mapa[0]): return 0
     else: return mapa[int(x)][int(y)]
 
-asyncio.run( main() )
+def loadTexturesSprites(horizontal_res, vertical_res):
+    wall = pg.image.load('assets/textures/wall.jpg').convert()
+    floor = pg.image.load('assets/textures/floor.jpg').convert()
+    pipe = pg.image.load('assets/textures/pipe.jpg').convert()
+    pipetop = pg.image.load('assets/textures/pipetop.jpg').convert()
+    pipehole = pg.image.load('assets/textures/pipehole.jpg').convert()
+    mistery = pg.image.load('assets/textures/mistery.jpg').convert()
+    nomistery = pg.image.load('assets/textures/nomistery.jpg').convert()
+    door = pg.image.load('assets/textures/door.jpg').convert()
+    castle = pg.image.load('assets/textures/castle.jpg').convert()
+    block = pg.image.load('assets/textures/block.jpg').convert()
+    cloud = pg.image.load('assets/textures/cloud.png').convert_alpha()
+    sky = pg.transform.scale(pg.image.load('assets/textures/skybox.jpg').convert(), (horizontal_res*2, 6*vertical_res))
+    textures = [sky, floor, mistery, wall, block, pipe, pipetop, door, castle, nomistery, pipehole, cloud]
+    
+    sprites = { 'goomba': [pg.image.load('assets/sprites/goomba front.png').convert_alpha(),
+                           pg.image.load('assets/sprites/goomba back.png').convert_alpha(),
+                           pg.image.load('assets/sprites/goomba back.png').convert_alpha()],
+                'koopa': [pg.image.load('assets/sprites/koopa front.png').convert_alpha(),
+                          pg.image.load('assets/sprites/koopa back.png').convert_alpha(),
+                          pg.image.load('assets/sprites/koopa slide.png').convert_alpha()], 
+                'mushroom': [pg.image.load('assets/sprites/mushroom.png').convert_alpha()], 
+                'flower': [pg.image.load('assets/sprites/flower.png').convert_alpha()], 
+                'fireball': [pg.image.load('assets/sprites/fireball.png').convert_alpha()],
+                'life': [pg.image.load('assets/sprites/life.png').convert_alpha()],
+                'star': [pg.image.load('assets/sprites/star.png').convert_alpha()],
+            }
+    return textures, sprites
+
+asyncio.run(main())
 
 # do not add anything from here
 # asyncio.run is non block on pg-wasm

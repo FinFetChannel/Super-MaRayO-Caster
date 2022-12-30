@@ -1,10 +1,10 @@
 import math
 import pygame as pg
 
-def rayCaster(player, mapa, frame, horizontal_res, vertical_res, mod, textures, sky, step, GetTile):
+def rayCaster(player, mapa, frame, horizontal_res, vertical_res, mod, textures, step, GetTile):
     """Render a first person view of a 3D world using a ray casting algorithm."""
     # Blit the sky onto the frame
-    frame.blit(sky, (-0.5*vertical_res +player.roth*vertical_res, -2*horizontal_res +player.rot*horizontal_res))
+    frame.blit(textures[0], (-0.5*vertical_res +player.roth*vertical_res, -2*horizontal_res +player.rot*horizontal_res))
     # Set the reference position for the rays to be cast from
     refx, refy = player.x -0.2, player.y+0.1
     # Set the horizontal offset for the frame
@@ -41,25 +41,25 @@ def rayCaster(player, mapa, frame, horizontal_res, vertical_res, mod, textures, 
             
             # If a block was found, render it on the frame
             if tile != 0 and tile >= -1:
-                # Calculate the scale of the block based on its distance from the player
-                scale = horizontal_res/(step*n*math.cos(math.radians(i*mod-30)))
+                scale = horizontal_res/(step*n*0.6)#*math.cos(math.radians(i*mod-30)))
+                text_coord = 1-y%1
+                if text_coord < 0.03 or text_coord > 0.97:text_coord = x%1
                 
-                # Certain types of blocks are wider
-                if tile in [-1, 1, 6, 7, 8]:#== 1 or tile == 6 or tile == -1:
-                    scale = scale*1.2
+                if tile == 6 and GetTile(x, y+0.05, mapa) < 1: # pipe top face
+                        tile = 10
+                        text_coord *= 0.5
+                        if GetTile(x + 1, y, mapa) < 1:
+                            text_coord += 0.5       
                 
-                # top of pipes
-                if tile == 6 and GetTile(x, y+0.05, mapa) == 0:
-                    tile = 10
+                # Certain types of blocks are slimmer
+                if tile in [2, 3, 4, 5, 9]: # mistery, brick, block, pipe
+                    scale *= 0.85
+                    if tile in [2, 3, 9]:
+                        scale *= 0.85
                 
-                # Calculate the x-coordinate of the block's texture
-                xx = x%1
-                if xx < 0.03 or xx > 0.97:xx = 1-y%1
-
-                # Extract a horizontal subsurface of the texture and resize it to the correct scale
-                subsurface = pg.Surface.subsurface(textures[tile], (0, int(100*xx), 99, 1))
+                # Extract a horizontal slice of the texture
+                subsurface = pg.Surface.subsurface(textures[tile], (0, int(100*text_coord), 99, 1))
                 resized = pg.transform.scale(subsurface, (scale,1))
-                # Blit the resized texture onto the frame
                 frame.blit(resized, ((horizontal_res-scale)*0.5 + offset, vertical_res - i -1))
 
                 break
