@@ -2,7 +2,7 @@ import math
 import pygame as pg
 
 def rayCaster(player, mapa, frame, horizontal_res, vertical_res, mod, textures, step, GetTile):
-    """Render a first person view of a 3D world using a ray casting algorithm."""
+
     # Blit the sky onto the frame
     frame.blit(textures[0], (-0.5*vertical_res +player.roth*vertical_res, -2*horizontal_res +player.rot*horizontal_res))
     # Set the reference position for the rays to be cast from
