@@ -1,12 +1,9 @@
 ''' #TODO list
 - entities sounds
-- underworld
-- coins underworld
 - timer
 - end game
 - flag
 - door logic
-- enter pipe
 - splash
 - menu
 '''
@@ -28,17 +25,21 @@ pg.mouse.set_visible(False)
 async def main():
     running = 1
     player = Player()
+
     horizontal_res = 200
     vertical_res = int(horizontal_res*0.75)
     frame = pg.Surface([horizontal_res, vertical_res])
+    dark = pg.Surface(frame.get_size())
+    dark.fill((0,0,0))
+    dark.set_alpha(100)
     mod = 60/horizontal_res
     step = mod*0.07
+
     pg.event.set_grab(1)
-    # pg.mixer.music.load('assets/sounds/mario theme.ogg')
-    # pg.mixer.music.play(-1)
-    jump = pg.mixer.Sound('assets/sounds/jump.wav')
+    pg.mixer.music.load('assets/sounds/mario theme.ogg')
+    pg.mixer.music.play(-1, 0, 1000)
         
-    textures, sprites, misteries = loadTexturesSprites(horizontal_res, vertical_res)
+    textures, sprites, misteries, sounds = loadAssets(horizontal_res, vertical_res)
     
     def loadLevel(path):
         map_image = pg.image.load(path).convert()
@@ -53,26 +54,36 @@ async def main():
     mapa_bonus, entities_bonus, map_image_bonus = loadLevel('assets/maps/mapA.png')
     mapa = [mapa, mapa_bonus]
     entities = [entities, entities_bonus]
+    hud_string = 'MARIO                                                      WORLD                          TIME'
+    hud_text = font.render( hud_string, 1, [255, 255, 255])
+    world_text = font.render('1-1', 1, [255, 255, 255])
 
     while True:
         player.partial_time = clock.tick(60)/1000
         player.total_time += player.partial_time
 
-        player.update(mapa[player.bonus], jump, entities, GetTile)
+        player.update(mapa[player.bonus], entities[player.bonus], sounds, GetTile)
         if player.bonus == 2:
             for i in range(len(mapa[0])):
                 if -7 in mapa[0][i]:
                     player.x = i
-                    player.y = mapa[0][i].index(-7)
+                    player.y = mapa[0][i].index(-7)-0.5
+                    player.rot = 0
                     player.bonus = 0
+                    player.enterpipe = -75
+                    pg.mixer.music.fadeout(1000)
+                    pg.mixer.music.unload()
+                    pg.mixer.music.load('assets/sounds/mario theme.ogg')
+                    pg.mixer.music.play(-1, 0, 1000)
+                    sounds['pipe'].play()
 
         if player.total_time - player.animation > 0:
             player.animation = player.total_time + 0.2
             textures[2] = misteries[0]
             misteries = misteries[1:] + [misteries[0]]
             for key in sprites:
-                for i in range(len(sprites[key])):
-                    if key != 'pole':
+                if key != 'pole':
+                    for i in range(len(sprites[key])):
                         sprites[key][i] = pg.transform.flip(sprites[key][i], flip_x=True, flip_y=False)
 
         frame = rayCaster(player, mapa[player.bonus], frame, horizontal_res, vertical_res, mod, textures, step, GetTile)
@@ -84,7 +95,7 @@ async def main():
             if entity.status != 'dead':
                 entity.renderSprite(frame, sprites, player, horizontal_res, vertical_res, mapa[player.bonus])
                 if entity.status != 'dying':
-                    entity.update(mapa[player.bonus], player, entities[player.bonus], GetTile)
+                    entity.update(mapa[player.bonus], player, entities[player.bonus], sounds, GetTile)
                
                 if i > 0 and entity.dist2player > entities[player.bonus][index-1].dist2player:# soft sort entities for drawing
                     entities[player.bonus][index-1], entities[player.bonus][index] = entities[player.bonus][index], entities[player.bonus][index-1] # may take a few frames...
@@ -94,29 +105,49 @@ async def main():
                 popped -= 1
 
         if player.y < 0 or player.status < 0:
+            sounds['die'].play()
             player.status = 0
             player.lives -= 1
             player.x = 3.5
             player.y = 12.5
             player.vel_x = player.vel_y = 0
-            # mapa, entities, map_image = loadLevel('assets/maps/map1.png')
+            mapa, entities, map_image = loadLevel('assets/maps/map1.png')
+            mapa_bonus, entities_bonus, map_image_bonus = loadLevel('assets/maps/mapA.png')
+            mapa = [mapa, mapa_bonus]
+            entities = [entities, entities_bonus]
 
-            # if player.lives < 1:
-            #     print('restart game')
-            #     player = Player()
+            if player.lives < 1:
+                print('restart game')
+                player = Player()
 
         
         for event in pg.event.get():
             if event.type == pg.QUIT or (event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE):
                 running = 0
         
-        render2D(frame, map_image, player, entities[player.bonus]) # for debug to see where are player and entities
-            
-        upscaled = pg.transform.scale(frame, [800,600])
-        upscaled.blit(font.render(str(round(clock.get_fps(),1)), 1, [255, 255, 255]), [750,0])
-        upscaled.blit(font.render(str(player.coins)+' '+str(player.points), 1, [255, 255, 255]), [50,0])
-        screen.blit(upscaled, (0,0))
+        if player.bonus:
+            frame.blit(dark, (0,0))
 
+        # render2D(frame, map_image, player, entities[player.bonus]) # for debug to see where are player and entities
+        
+        
+        upscaled = pg.transform.scale(frame, [800,600])
+        
+        upscaled.blit(font.render(str(round(clock.get_fps(),1)), 1, [255, 255, 255]), [750, 5])
+
+        upscaled.blit(hud_text, [50, 5])
+
+
+        display_points = (6-len(str(player.points)))*'0'+str(player.points)
+        display_coins = 'x' + (2-len(str(player.coins)))*'0'+str(player.coins)
+        display_timer = str(400 - int(player.total_time*2))
+        upscaled.blit(font.render(display_points, 1, [255, 255, 255]), [50,25])
+        upscaled.blit(font.render(display_coins, 1, [255, 255, 255]), [300,25])
+        upscaled.blit(world_text, [460,25])
+        upscaled.blit(font.render(display_timer, 1, [255, 255, 255]), [680,25])
+        upscaled.blit(sprites['coin'][1], [270,25])
+        
+        screen.blit(upscaled, (0,0))
         pg.display.update()
 
         await asyncio.sleep(0)  # very important, and keep it 0
@@ -128,7 +159,7 @@ def GetTile(x, y, mapa):
     if x < 0 or y < 0 or x > len(mapa) or y > len(mapa[0]): return 0
     else: return mapa[int(x)][int(y)]
 
-def loadTexturesSprites(horizontal_res, vertical_res):
+def loadAssets(horizontal_res, vertical_res):
     wall = pg.image.load('assets/textures/wall.jpg').convert()
     floor = pg.image.load('assets/textures/floor.jpg').convert()
     pipe = pg.image.load('assets/textures/pipe.jpg').convert()
@@ -158,11 +189,25 @@ def loadTexturesSprites(horizontal_res, vertical_res):
                              pg.image.load('assets/sprites/fireball.png').convert_alpha()],
                 'life': [pg.image.load('assets/sprites/life.png').convert_alpha()],
                 'star': [pg.image.load('assets/sprites/star.png').convert_alpha()],
-                'coin': [pg.image.load('assets/sprites/coin.png').convert_alpha()],
+                'coin': [pg.image.load('assets/sprites/coin.png').convert_alpha(),
+                         pg.image.load('assets/sprites/minicoin.png').convert_alpha()],
                 'pole': [pg.image.load('assets/sprites/pole.png').convert_alpha(), 
                          pg.image.load('assets/sprites/poletop.png').convert_alpha()],
             }
-    return textures, sprites, misteries
+    sounds = {  'break': pg.mixer.Sound('assets/sounds/break.wav'),
+                'coin': pg.mixer.Sound('assets/sounds/coin.wav'),
+                'die': pg.mixer.Sound('assets/sounds/die.wav'),
+                'item': pg.mixer.Sound('assets/sounds/item.wav'),
+                'jump': pg.mixer.Sound('assets/sounds/jump.wav'),
+                'kill': pg.mixer.Sound('assets/sounds/kill.wav'),
+                'pipe': pg.mixer.Sound('assets/sounds/pipe.wav'),
+                'pole': pg.mixer.Sound('assets/sounds/pole.wav'),
+                'powerup': pg.mixer.Sound('assets/sounds/powerup.wav'),
+                'shoot': pg.mixer.Sound('assets/sounds/shoot.wav'),
+
+            }
+
+    return textures, sprites, misteries, sounds
 
 asyncio.run(main())
 

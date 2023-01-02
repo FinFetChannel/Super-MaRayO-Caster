@@ -5,7 +5,7 @@ def rayCaster(player, mapa, frame, horizontal_res, vertical_res, mod, textures, 
 
     # Blit the sky onto the frame
     if player.bonus:
-        frame.fill((0,0,0))
+        frame.fill((0,64,64))
     else:
         frame.blit(textures[0], (-0.5*vertical_res +player.roth*vertical_res, -2*horizontal_res +player.rot*horizontal_res))
     # Set the reference position for the rays to be cast from
@@ -80,7 +80,7 @@ def rayCaster(player, mapa, frame, horizontal_res, vertical_res, mod, textures, 
                 frame.blit(resized, ((horizontal_res-scale)*0.5 + offset, vertical_res - i -1))
 
                 break
-
+    
     return frame
 
 def render2D(frame, map_image, player, enemies):

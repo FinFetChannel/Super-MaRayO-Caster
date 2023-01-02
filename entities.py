@@ -29,11 +29,11 @@ class Entity:
         elif self.type == 'star':
             self.vel_y = 4
         
-    def update(self, mapa, player, entities, GetTile):
+    def update(self, mapa, player, entities, sounds, GetTile):
 
         if self.dist2player < 14:
                              
-            self.player_interactions(player, GetTile, mapa)
+            self.player_interactions(player, GetTile, mapa, sounds)
             
             if self.type not in ['flower', 'pole', 'coin']:   
                 self.vel_y -= player.partial_time*4
@@ -49,7 +49,7 @@ class Entity:
                 elif self.status == 'inshell' and player.total_time - self.timer > 5:
                     self.status = 'walking'
 
-                self.entities_interactions(entities, player)
+                self.entities_interactions(entities, player, sounds)
              
                 newy = self.y + self.vel_y*player.partial_time*2
 
@@ -60,11 +60,13 @@ class Entity:
                     self.status = 'dying'
                     self.timer = player.total_time
                     self.direction = -1
+                    sounds['break'].play()
                 elif GetTile(newx, self.y-1, mapa) > 0:
                     self.direction = -self.direction
                 
                 if newy - 0.25 < 0: # fell off the cliff
                     self.status = 'dead'
+                    sounds['kill'].play()
                 elif GetTile(self.x, newy - 0.25, mapa) < 1:
                     self.y = newy
                 elif self.type in ['fireball', 'star']:
@@ -80,27 +82,28 @@ class Entity:
             self.timer = player.total_time
             self.direction = -1
 
-    def player_interactions(self, player, GetTile, mapa):
+    def player_interactions(self, player, GetTile, mapa, sounds):
         if self.dist2player < 1:
             if self.type in ['mushroom', 'flower']:
                 self.status = 'dead'
                 player.points += 1000
+                sounds['powerup'].play()
                 if player.status < 2:
                     player.delta_player = 0.5
                     player.status += 1
-                else:
-                    player.lives += 1
             elif self.type == 'life':
                 self.status = 'dead'
                 player.points += 1000
                 player.lives += 1
+                sounds['powerup'].play()
             elif self.type == 'star':
                 self.status = 'dead'
                 player.star = player.total_time + 20
+                sounds['powerup'].play()
             elif player.total_time < player.star:
                 self.status = 'dying'
                 self.timer = player.total_time
-                
+                sounds['kill'].play()
             elif self.type == 'goomba':
                 if player.vel_y < 0 and player.y - 0.2 > self.y:
                     player.vel_y = 4
@@ -109,20 +112,22 @@ class Entity:
                     if GetTile(self.x + 0.5, self.y, mapa) < 1:
                         self.x = self.x + 0.5
                     player.points += 100
+                    sounds['kill'].play()
                 elif player.total_time - player.hit > 0:
                     player.status -= 1
                     player.hit = player.total_time + 3
+                    sounds['die'].play()
 
             elif self.type == 'koopa':
                 if self.status in ['walking', 'sliding'] and (player.vel_y < 0 and player.y - 0.2 > self.y):
                     player.vel_y = 4
                     self.status = 'inshell'
                     self.timer = player.total_time
-                    print('inshell')
+                    sounds['kill'].play()
                 elif self.status == 'inshell':
+                    sounds['kill'].play()
                     player.vel_y *= -0.5
                     self.status = 'sliding'
-                    print('sliding')
                     self.direction = 1
                     if self.x < player.x:
                         self.direction = 1
@@ -131,32 +136,39 @@ class Entity:
                 elif player.total_time - player.hit > 0:
                     player.status -= 1
                     player.hit = player.total_time + 3
+                    sounds['die'].play()
             elif self.type == 'coin':
                 self.status = 'dead'
                 player.points += 200
-                player.coins + 1
+                player.coin(sounds)
             elif self.type == 'pole':
-                player.points += 10*int(player.partial_time*100)#int(player.y-2)**2*100
-                if player.y > 4:
+                player.rot *= 0.5
+                if abs(player.x - self.x) > 0.01:
+                    sounds['pole'].play()
+                if player.y > 4 and player.vel_x >= 0:
+                    player.points += 10*int(player.partial_time*100)#int(player.y-2)**2*100
                     player.vel_y = -0.5
                     player.vel_x  = 0
+                    player.x = self.x
                 else:
                     player.vel_y = 3
                     player.vel_x  = 2
-                    player.x += 0.5
+                    player.x = self.x + 1
+                    
+
                 
     
-    def entities_interactions(self, entities, player):
+    def entities_interactions(self, entities, player, sounds):
         for entity in entities:
-            if ((self.x != entity.x or self.y != entity.y) and
-                entity.type != 'fireball' and (self.x - entity.x)**2 + (self.y - entity.y)**2 < 0.5):
+            if ((self.x != entity.x or self.y != entity.y) and entity.type not in ['pole', 'fireball'] 
+                and (self.x - entity.x)**2 + (self.y - entity.y)**2 < 0.5):
 
                 if self.status == 'sliding':
                 
                     entity.status = 'dying'
                     entity.timer = player.total_time
                     player.points += 100
-
+                    sounds['kill'].play()
                     if self.type == 'fireball':
                         self.status = 'dying'
                         self.timer = player.total_time

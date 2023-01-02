@@ -3,7 +3,7 @@ import pygame as pg
 
 class Player:
     def __init__(self):
-        self.x = 191.5
+        self.x = 1.5
         self.y = 12.5
         self.rot = 0
         self.roth = 0
@@ -21,9 +21,27 @@ class Player:
         self.coins = 0
         self.animation = 0
         self.bonus = 0
+        self.enterpipe = 0
 
-    def update(self, mapa, jump, entities, GetTile):
+    def update(self, mapa, entities, sounds, GetTile):
         """Update the player's attributes based on input and elapsed time."""
+
+        if self.enterpipe > 0:
+            self.y -= 0.01
+            self.enterpipe -= 1
+            if self.enterpipe == 0:
+                self.bonus = 1
+                pg.mixer.music.fadeout(1000)
+                pg.mixer.music.unload()
+                pg.mixer.music.load('assets/sounds/under theme.ogg')
+                pg.mixer.music.play(-1, 0, 1000)
+                self.x = 1.5
+                self.y = 12.5
+            return 0
+        elif self.enterpipe < 0:
+            self.y += 0.01
+            self.enterpipe += 1
+            return 0
 
         pressed_keys = pg.key.get_pressed()
 
@@ -40,6 +58,7 @@ class Player:
             if self.status == 2 and self.total_time - self.timer > 1 and (pressed_keys[ord('f')] or pg.mouse.get_pressed()[0]):
                 self.timer = self.total_time
                 entities.insert(0, Entity([5, self.x+1, self.y+0.1]))
+                sounds['shoot'].play()
 
         # Determine the player's forward velocity based on keyboard input
         forward = pressed_keys[ord('w')] - pressed_keys[ord('s')]       
@@ -50,12 +69,11 @@ class Player:
                 self.vel_x = self.vel_x - self.partial_time*self.vel_x*15
 
             if pressed_keys[pg.K_SPACE]:
-                jump.play()
+                sounds['jump'].play()
                 self.vel_y = 7
             if pressed_keys[pg.K_LCTRL] and GetTile(self.x, self.y, mapa) == -6:
-                self.bonus = 1
-                self.x = 1.5
-                self.y = 12.5
+                self.enterpipe = 100
+                sounds['pipe'].play()
                 return 0
         else:
             self.vel_y -= self.partial_time*12 # gravity
@@ -68,7 +86,7 @@ class Player:
                 self.y = newposy
             else:
                 if self.vel_y > 0:
-                    self.checkMistery(mapa, entities, GetTile)
+                    self.checkMistery(mapa, entities, sounds, GetTile)
                 self.vel_y = 0
         else:
             self.vel_y = 0
@@ -78,7 +96,7 @@ class Player:
                 self.y -= self.delta
 
         self.vel_x = min(max(self.vel_x + self.partial_time*forward*9, -2), 3)
-        if abs(self.vel_x) > 0.001:
+        if abs(self.vel_x) > 0.01:
             newposx = max(0, min(len(mapa) - 1, self.x + self.partial_time*self.vel_x*2))
 
             if (GetTile(newposx - self.delta, self.y, mapa) < 1 and GetTile(newposx + self.delta, self.y, mapa) < 1):
@@ -87,22 +105,25 @@ class Player:
                 self.vel_x *= -0.5
         else:
             self.vel_x = 0
-            if GetTile(self.x + 1, self.y, mapa) == 7:
-                self.bonus = 1
+            if GetTile(self.x + 1.5, self.y, mapa) == 7:
+                self.enterpipe = 10
+                sounds['pipe'].play()
                 return 0
-            if GetTile(self.x + 1, self.y, mapa) == 10:
+            if GetTile(self.x + 1.5, self.y, mapa) == 10:
                 self.bonus = 2
+                sounds['pipe'].play()
                 return 0
             if GetTile(self.x - self.delta, self.y, mapa) > 0:
                 self.x += self.delta
             elif GetTile(self.x + self.delta, self.y, mapa) > 0:
                 self.x -= self.delta
 
-    def checkMistery(self, mapa, entities, GetTile):
+    def checkMistery(self, mapa, entities, sounds, GetTile):
         if GetTile(self.x, self.y + 1, mapa) in [2, -4]:
             mapa[int(self.x)][int(self.y + 1)] = 9
             if GetTile(self.x, self.y + 2, mapa) == -2:
                 mapa[int(self.x)][int(self.y + 2)] = 0
+                sounds['item'].play()
                 if self.status == 0:
                     entities.insert(0, Entity([3, int(self.x)+0.5, int(self.y) + 2])) # mushroom
                 elif self.status == 1:
@@ -112,14 +133,16 @@ class Player:
             elif GetTile(self.x, self.y + 2, mapa) == -3:
                 mapa[int(self.x)][int(self.y + 2)] = 0
                 entities.insert(0, Entity([6, int(self.x)+0.5, int(self.y) + 2])) # life mushroom
+                sounds['item'].play()
             elif GetTile(self.x, self.y + 2, mapa) == -5:
                 mapa[int(self.x)][int(self.y + 2)] = 0
                 entities.insert(0, Entity([7,  int(self.x)+0.5, int(self.y) + 2])) # star
+                sounds['item'].play()
             else:
-                self.coins += 1
+                self.coin(sounds)
                 self.points += 200
         elif GetTile(self.x, self.y + 2, mapa) < -10:
-            self.coins += 1
+            self.coin(sounds)
             self.points += 200
             mapa[int(self.x)][int(self.y + 2)] += 1
             if mapa[int(self.x)][int(self.y + 2)] == -10:
@@ -127,8 +150,15 @@ class Player:
                 mapa[int(self.x)][int(self.y + 2)] = 0
         elif GetTile(self.x, self.y + 1, mapa) == 3 and self.status > 0:
             mapa[int(self.x)][int(self.y + 1)] = 0
-        else:
-            print('nothing')
+            sounds['break'].play()
+    
+    def coin(self, sounds):
+        self.coins += 1
+        sounds['coin'].play()
+        if self.coins > 99:
+            self.coins = 0
+            self.lives += 1
+            sounds['powerup'].play()
 
 if __name__ == '__main__':
     import main
