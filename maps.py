@@ -1,11 +1,12 @@
 def read_map(image):
 
     color_map = {
-        (185, 122, 87): 1,  # brown -> floor block
-        (255, 201, 14): 2,  # gold -> mistery block
-        (136,   0, 21): 3,  # dark red -> brick block
-        (255, 127, 39): 4,  # orange -> block block
-        (181, 230, 29): 5,  # light green -> base pipe block, 6 for top,10 top face
+        (185, 122,  87): 1,  # brown -> floor block
+        (255, 201,  14): 2,  # gold -> mistery block
+        (136,   0,  21): 3,  # dark red -> brick block
+        (255, 127,  39): 4,  # orange -> block block
+        (181, 230,  29): 5,  # light green -> base pipe block, 6 for top,10 top face
+        (  0, 255,   0): 10,  # pure green -> horizontal pipe block
         (127, 127, 127): 7, # gray -> door block
         (195, 195, 195): 8, # light gray -> castle block
         
@@ -14,15 +15,16 @@ def read_map(image):
         ( 34, 177,  76):-3, # dark green -> life mushroom
         (239, 228, 176):-4, # light yellow -> hidden mistery block
         (  0, 162, 232):-5, # blue -> star
-        (112, 146, 190):-6, # indigo blue -> enter pipe
-        ( 63,  72, 204):-7, # gray blue -> exit pipe
+        ( 63,  72, 204):-6, # indigo blue -> enter pipe
+        (112, 146, 190):-7, # gray blue -> exit pipe
         (200, 191, 231):-20,# light purple -> hidden coin x10 
     }
 
     entity_map = {
-        (237, 28, 36): 1,  # red -> goomba
-        (255, 174, 201): 2,  # pink -> koopa
-        (163,  73, 164): 8,# purple -> flag pole
+        (237,  28,  36): 1, # red -> goomba
+        (255, 174, 201): 2, # pink -> koopa
+        (163,  73, 164): 8, # purple -> flag pole
+        (153, 217, 234): 9, # blue -> coin
     }
 
     # Convert the image to a 2D list of integers using the color map
@@ -36,7 +38,7 @@ def read_map(image):
             block_type = color_map.get((pixel_color.r, pixel_color.g, pixel_color.b), 0)
             if block_type == 5:
                 above_color = image.get_at((x, height - y - 2))
-                if color_map.get((above_color.r, above_color.g, above_color.b), 0) == 0:
+                if color_map.get((above_color.r, above_color.g, above_color.b), 0) < 1:
                      block_type = 6
             if block_type == 11:
                 above_color = image.get_at((x, height - y - 2))
@@ -48,7 +50,7 @@ def read_map(image):
             entity_type = entity_map.get((pixel_color.r, pixel_color.g, pixel_color.b), 0)
             if entity_type > 0:
                 entity_data.append([entity_type, x + 0.5, y+0.5])
-                image.set_at((x, height - y - 1), (153, 217, 234)) # set pixel blue for minimap
+                # image.set_at((x, height - y - 1), (153, 217, 234)) # set pixel blue for minimap
     
     return map_data, entity_data
 

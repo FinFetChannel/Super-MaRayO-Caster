@@ -1,7 +1,7 @@
 import pygame as pg
 import math
 
-types = ['goomba', 'koopa', 'mushroom', 'flower', 'fireball', 'life', 'star', 'pole']
+types = ['goomba', 'koopa', 'mushroom', 'flower', 'fireball', 'life', 'star', 'pole', 'coin']
 
 class Entity:
     
@@ -19,20 +19,15 @@ class Entity:
             if self.type in ['mushroom', 'life']:
                 self.status = 'mushing' # whatever mushrooms do
             
-        if self.type == 'flower':
+        if self.type in ['flower', 'pole', 'coin']:
             self.status = 'sitting'
-            self.x = int(self.x) + 0.5
-        if self.type == 'pole':
-            self.status = 'sitting'
-            if self.y > 10:
+        if self.type == 'pole' and self.y > 10:
                 self.direction = 1
         elif self.type == 'fireball':
             self.status = 'sliding'
             self.vel_y = 1
         elif self.type == 'star':
             self.vel_y = 4
-
-        # print('creating', self.type)
         
     def update(self, mapa, player, entities, GetTile):
 
@@ -40,22 +35,21 @@ class Entity:
                              
             self.player_interactions(player, GetTile, mapa)
             
-            if self.type not in ['flower', 'pole']:   
+            if self.type not in ['flower', 'pole', 'coin']:   
                 self.vel_y -= player.partial_time*4
 
                 newx = self.x
                 if self.status == 'walking':
                     newx = self.x + self.direction*player.partial_time*2
-                if self.status == 'mushing':
-                    newx = self.x + self.direction*player.partial_time*4
-                
+                elif self.status == 'mushing':
+                    newx = self.x + self.direction*player.partial_time*3
                 elif self.status == 'sliding':
-                    newx = self.x + self.direction*player.partial_time*6
-                    self.entities_interactions(entities, player)
-
+                    newx = self.x + self.direction*player.partial_time*5
+                    
                 elif self.status == 'inshell' and player.total_time - self.timer > 5:
                     self.status = 'walking'
-            
+
+                self.entities_interactions(entities, player)
              
                 newy = self.y + self.vel_y*player.partial_time*2
 
@@ -69,7 +63,7 @@ class Entity:
                 elif GetTile(newx, self.y-1, mapa) > 0:
                     self.direction = -self.direction
                 
-                if newy - 0.25 < 0:
+                if newy - 0.25 < 0: # fell off the cliff
                     self.status = 'dead'
                 elif GetTile(self.x, newy - 0.25, mapa) < 1:
                     self.y = newy
@@ -137,22 +131,41 @@ class Entity:
                 elif player.total_time - player.hit > 0:
                     player.status -= 1
                     player.hit = player.total_time + 3
+            elif self.type == 'coin':
+                self.status = 'dead'
+                player.points += 200
+                player.coins + 1
             elif self.type == 'pole':
-                player.points += int(player.y-3)**2*100
-                player.x = 3.5
+                player.points += 10*int(player.partial_time*100)#int(player.y-2)**2*100
+                if player.y > 4:
+                    player.vel_y = -0.5
+                    player.vel_x  = 0
+                else:
+                    player.vel_y = 3
+                    player.vel_x  = 2
+                    player.x += 0.5
+                
+    
     def entities_interactions(self, entities, player):
         for entity in entities:
-            if ((self.x != entity.x or self.y != entity.y) and entity.dist2player < 20 and
+            if ((self.x != entity.x or self.y != entity.y) and
                 entity.type != 'fireball' and (self.x - entity.x)**2 + (self.y - entity.y)**2 < 0.5):
-                
-                entity.status = 'dying'
-                entity.timer = player.total_time
-                player.points += 100
 
-                if self.type == 'fireball':
-                    self.status = 'dying'
-                    self.timer = player.total_time
-                    self.direction = -1
+                if self.status == 'sliding':
+                
+                    entity.status = 'dying'
+                    entity.timer = player.total_time
+                    player.points += 100
+
+                    if self.type == 'fireball':
+                        self.status = 'dying'
+                        self.timer = player.total_time
+                        self.direction = -1
+                elif self.type in ['goomba', 'koopa']:
+                    if self.x > entity.x:
+                        self.direction = 1
+                    else:
+                        self.direction = -1
                     
     def selectSprite(self, sprites):
         index = self.direction

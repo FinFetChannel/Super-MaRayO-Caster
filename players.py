@@ -3,7 +3,7 @@ import pygame as pg
 
 class Player:
     def __init__(self):
-        self.x = 183.5
+        self.x = 191.5
         self.y = 12.5
         self.rot = 0
         self.roth = 0
@@ -12,7 +12,7 @@ class Player:
         self.partial_time = 1
         self.total_time = 0
         self.timer = 0
-        self.status = 2 # -1 dead, 0 tiny, 1 grown, 2 fireballs
+        self.status = 0 # -1 dead, 0 tiny, 1 grown, 2 fireballs
         self.delta = 0.2
         self.lives = 3
         self.star = 0
@@ -20,6 +20,7 @@ class Player:
         self.points = 0
         self.coins = 0
         self.animation = 0
+        self.bonus = 0
 
     def update(self, mapa, jump, entities, GetTile):
         """Update the player's attributes based on input and elapsed time."""
@@ -43,15 +44,19 @@ class Player:
         # Determine the player's forward velocity based on keyboard input
         forward = pressed_keys[ord('w')] - pressed_keys[ord('s')]       
 
-        # If the player is on the floor, apply friction and increase forward velocity
         if GetTile(self.x, self.y - self.delta-0.01, mapa) > 0:  # Check if there is floor
             self.vel_y = 0
             if forward == 0:
                 self.vel_x = self.vel_x - self.partial_time*self.vel_x*15
-            # Make the player jump if the jump key was pressed
+
             if pressed_keys[pg.K_SPACE]:
                 jump.play()
                 self.vel_y = 7
+            if pressed_keys[pg.K_LCTRL] and GetTile(self.x, self.y, mapa) == -6:
+                self.bonus = 1
+                self.x = 1.5
+                self.y = 12.5
+                return 0
         else:
             self.vel_y -= self.partial_time*12 # gravity
        
@@ -59,7 +64,7 @@ class Player:
         if abs(self.vel_y) > 0.001:
             newposy = self.y + self.partial_time*self.vel_y*2
             if (GetTile(self.x, newposy - self.delta, mapa) < 1 and GetTile(self.x, newposy + self.delta, mapa) < 1 and
-                GetTile(self.x - self.delta, newposy, mapa) < 1 and GetTile(self.x, newposy + self.delta, mapa) != -4):
+                GetTile(self.x - self.delta, newposy, mapa) < 1 and (self.vel_y < 0 or GetTile(self.x, newposy + self.delta, mapa) != -4)):
                 self.y = newposy
             else:
                 if self.vel_y > 0:
@@ -82,6 +87,12 @@ class Player:
                 self.vel_x *= -0.5
         else:
             self.vel_x = 0
+            if GetTile(self.x + 1, self.y, mapa) == 7:
+                self.bonus = 1
+                return 0
+            if GetTile(self.x + 1, self.y, mapa) == 10:
+                self.bonus = 2
+                return 0
             if GetTile(self.x - self.delta, self.y, mapa) > 0:
                 self.x += self.delta
             elif GetTile(self.x + self.delta, self.y, mapa) > 0:
@@ -93,17 +104,17 @@ class Player:
             if GetTile(self.x, self.y + 2, mapa) == -2:
                 mapa[int(self.x)][int(self.y + 2)] = 0
                 if self.status == 0:
-                    entities.insert(0, Entity([3, self.x, self.y + 2])) # mushroom
+                    entities.insert(0, Entity([3, int(self.x)+0.5, int(self.y) + 2])) # mushroom
                 elif self.status == 1:
-                    entities.insert(0, Entity([4, self.x, self.y + 2])) # flower
+                    entities.insert(0, Entity([4, int(self.x)+0.5, int(self.y) + 2])) # flower
                 else:
-                    entities.insert(0, Entity([6, self.x, self.y + 2])) # life mushroom
+                    entities.insert(0, Entity([6, int(self.x)+0.5, int(self.y) + 2])) # life mushroom
             elif GetTile(self.x, self.y + 2, mapa) == -3:
                 mapa[int(self.x)][int(self.y + 2)] = 0
-                entities.insert(0, Entity([6, self.x, self.y + 2])) # life mushroom
+                entities.insert(0, Entity([6, int(self.x)+0.5, int(self.y) + 2])) # life mushroom
             elif GetTile(self.x, self.y + 2, mapa) == -5:
                 mapa[int(self.x)][int(self.y + 2)] = 0
-                entities.insert(0, Entity([7, self.x, self.y + 2])) # star
+                entities.insert(0, Entity([7,  int(self.x)+0.5, int(self.y) + 2])) # star
             else:
                 self.coins += 1
                 self.points += 200

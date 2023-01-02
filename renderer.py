@@ -4,7 +4,10 @@ import pygame as pg
 def rayCaster(player, mapa, frame, horizontal_res, vertical_res, mod, textures, step, GetTile):
 
     # Blit the sky onto the frame
-    frame.blit(textures[0], (-0.5*vertical_res +player.roth*vertical_res, -2*horizontal_res +player.rot*horizontal_res))
+    if player.bonus:
+        frame.fill((0,0,0))
+    else:
+        frame.blit(textures[0], (-0.5*vertical_res +player.roth*vertical_res, -2*horizontal_res +player.rot*horizontal_res))
     # Set the reference position for the rays to be cast from
     refx, refy = player.x -0.2, player.y+0.1
     # Set the horizontal offset for the frame
@@ -42,14 +45,28 @@ def rayCaster(player, mapa, frame, horizontal_res, vertical_res, mod, textures, 
             # If a block was found, render it on the frame
             if tile != 0 and tile >= -1:
                 scale = horizontal_res/(step*n*0.6)#*math.cos(math.radians(i*mod-30)))
+                
                 text_coord = 1-y%1
-                if text_coord < 0.03 or text_coord > 0.97:text_coord = x%1
+                if text_coord < 0.03 or text_coord > 0.97:
+                    text_coord = x%1
                 
                 if tile == 6 and GetTile(x, y+0.05, mapa) < 1: # pipe top face
-                        tile = 10
-                        text_coord *= 0.5
-                        if GetTile(x + 1, y, mapa) < 1:
-                            text_coord += 0.5       
+                    tile = 10
+                    text_coord *= 0.5
+                    if GetTile(x + 1, y, mapa) < 1:
+                        text_coord += 0.5
+                
+                elif tile == 10: # horizontal pipe entrance
+                    if GetTile(x, y+0.05, mapa) < 1:
+                        if GetTile(x-1, y, mapa) > 0: # regular pipe on top
+                            tile = 5
+                        else:
+                            tile = 6
+                    else:
+                        if GetTile(x, y+1, mapa) > 0:
+                            text_coord = 0.5* (y%1)
+                        else:
+                            text_coord = 0.5* (y%1)  + 0.5
                 
                 # Certain types of blocks are slimmer
                 if tile in [2, 3, 4, 5, 9]: # mistery, brick, block, pipe

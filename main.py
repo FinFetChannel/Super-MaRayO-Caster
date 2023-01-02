@@ -50,12 +50,22 @@ async def main():
         return mapa, entities, map_image
 
     mapa, entities, map_image = loadLevel('assets/maps/map1.png')
+    mapa_bonus, entities_bonus, map_image_bonus = loadLevel('assets/maps/mapA.png')
+    mapa = [mapa, mapa_bonus]
+    entities = [entities, entities_bonus]
 
     while True:
         player.partial_time = clock.tick(60)/1000
         player.total_time += player.partial_time
 
-        player.update(mapa, jump, entities, GetTile)
+        player.update(mapa[player.bonus], jump, entities, GetTile)
+        if player.bonus == 2:
+            for i in range(len(mapa[0])):
+                if -7 in mapa[0][i]:
+                    player.x = i
+                    player.y = mapa[0][i].index(-7)
+                    player.bonus = 0
+
         if player.total_time - player.animation > 0:
             player.animation = player.total_time + 0.2
             textures[2] = misteries[0]
@@ -65,41 +75,42 @@ async def main():
                     if key != 'pole':
                         sprites[key][i] = pg.transform.flip(sprites[key][i], flip_x=True, flip_y=False)
 
-        frame = rayCaster(player, mapa, frame, horizontal_res, vertical_res, mod, textures, step, GetTile)
+        frame = rayCaster(player, mapa[player.bonus], frame, horizontal_res, vertical_res, mod, textures, step, GetTile)
         
         popped = 0
-        for i in range(len(entities)):
+        for i in range(len(entities[player.bonus])):
             index = i + popped
-            entity = entities[index]
+            entity = entities[player.bonus][index]
             if entity.status != 'dead':
-                entity.renderSprite(frame, sprites, player, horizontal_res, vertical_res, mapa)
+                entity.renderSprite(frame, sprites, player, horizontal_res, vertical_res, mapa[player.bonus])
                 if entity.status != 'dying':
-                    entity.update(mapa, player, entities, GetTile)
+                    entity.update(mapa[player.bonus], player, entities[player.bonus], GetTile)
                
-                if i > 0 and entity.dist2player > entities[index-1].dist2player:# soft sort entities for drawing
-                    entities[index-1], entities[index] = entities[index], entities[index-1] # may take a few frames...
+                if i > 0 and entity.dist2player > entities[player.bonus][index-1].dist2player:# soft sort entities for drawing
+                    entities[player.bonus][index-1], entities[player.bonus][index] = entities[player.bonus][index], entities[player.bonus][index-1] # may take a few frames...
             
-            elif entities[index].status == 'dead':
-                entities.pop(index) # remove dead
+            elif entities[player.bonus][index].status == 'dead':
+                entities[player.bonus].pop(index) # remove dead
                 popped -= 1
 
         if player.y < 0 or player.status < 0:
             player.status = 0
             player.lives -= 1
-            player.x = player.y = 3.5
+            player.x = 3.5
+            player.y = 12.5
             player.vel_x = player.vel_y = 0
-            mapa, entities, map_image = loadLevel('assets/maps/map1.png')
+            # mapa, entities, map_image = loadLevel('assets/maps/map1.png')
 
-            if player.lives < 1:
-                print('restart game')
-                player = Player()
+            # if player.lives < 1:
+            #     print('restart game')
+            #     player = Player()
 
         
         for event in pg.event.get():
             if event.type == pg.QUIT or (event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE):
                 running = 0
         
-        render2D(frame, map_image, player, entities) # for debug to see where are player and entities
+        render2D(frame, map_image, player, entities[player.bonus]) # for debug to see where are player and entities
             
         upscaled = pg.transform.scale(frame, [800,600])
         upscaled.blit(font.render(str(round(clock.get_fps(),1)), 1, [255, 255, 255]), [750,0])
@@ -147,6 +158,7 @@ def loadTexturesSprites(horizontal_res, vertical_res):
                              pg.image.load('assets/sprites/fireball.png').convert_alpha()],
                 'life': [pg.image.load('assets/sprites/life.png').convert_alpha()],
                 'star': [pg.image.load('assets/sprites/star.png').convert_alpha()],
+                'coin': [pg.image.load('assets/sprites/coin.png').convert_alpha()],
                 'pole': [pg.image.load('assets/sprites/pole.png').convert_alpha(), 
                          pg.image.load('assets/sprites/poletop.png').convert_alpha()],
             }
