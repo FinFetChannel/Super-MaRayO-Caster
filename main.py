@@ -64,10 +64,7 @@ async def main():
     pg.mixer.music.play(-1, 0, 1000)
 
     while True:
-        player.partial_time = min(0.2, clock.tick(60)/1000)
-        player.total_time += player.partial_time
-
-        player.update(mapa[player.bonus], entities[player.bonus], sounds, GetTile)
+        
         if player.bonus == 2:
             for i in range(len(mapa[0])):
                 if -7 in mapa[0][i]:
@@ -81,7 +78,15 @@ async def main():
                     pg.mixer.music.load('assets/sounds/mario theme.ogg')
                     pg.mixer.music.play(-1, 0, 1000)
                     sounds['pipe'].play()
+
         elif player.bonus == 3:
+            clock.tick(60)
+            if player.total_time < 199:
+                player.total_time += 1
+                player.points += 10
+            else:
+                player.bonus = 4
+        elif player.bonus == 4:
             texts[1]= 'You finished with '+str(player.points)+ ' points'
             await textScreen(screen, font, texts)
             player = Player()
@@ -90,58 +95,66 @@ async def main():
             mapa = [mapa, mapa_bonus]
             entities = [entities, entities_bonus]
             pg.mixer.music.play(-1, 0, 1000)
+ 
+        if player.bonus < 2:
 
-        if player.total_time - player.animation > 0:
-            player.animation = player.total_time + 0.2
-            textures[2] = misteries[0]
-            misteries = misteries[1:] + [misteries[0]]
-            for key in sprites:
-                if key != 'pole':
-                    for i in range(len(sprites[key])):
-                        sprites[key][i] = pg.transform.flip(sprites[key][i], flip_x=True, flip_y=False)
-
-        frame = rayCaster(player, mapa[player.bonus], frame, horizontal_res, vertical_res, mod, textures, step, GetTile)
-        
-        popped = 0
-        for i in range(len(entities[player.bonus])):
-            index = i + popped
-            entity = entities[player.bonus][index]
-            if entity.status != 'dead':
-                entity.renderSprite(frame, sprites, player, horizontal_res, vertical_res, mapa[player.bonus])
-                if entity.status != 'dying':
-                    entity.update(mapa[player.bonus], player, entities[player.bonus], sounds, GetTile)
-               
-                if i > 0 and entity.dist2player > entities[player.bonus][index-1].dist2player:# soft sort entities for drawing
-                    entities[player.bonus][index-1], entities[player.bonus][index] = entities[player.bonus][index], entities[player.bonus][index-1] # may take a few frames...
+            if player.total_time - player.animation > 0:
+                player.animation = player.total_time + 0.2
+                textures[2] = misteries[0]
+                misteries = misteries[1:] + [misteries[0]]
+                for key in sprites:
+                    if key != 'pole':
+                        for i in range(len(sprites[key])):
+                            sprites[key][i] = pg.transform.flip(sprites[key][i], flip_x=True, flip_y=False)
             
-            elif entities[player.bonus][index].status == 'dead':
-                entities[player.bonus].pop(index) # remove dead
-                popped -= 1
+            player.partial_time = min(0.2, clock.tick(60)/1000)
+            player.total_time += player.partial_time
+            frame = rayCaster(player, mapa[player.bonus], frame, horizontal_res, vertical_res, mod, textures, step, GetTile)
 
-        if player.y < 0 or player.status < 0:
-            sounds['die'].play()
-            player.status = 0
-            player.lives -= 1
-            player.x = 3.5
-            player.y = 12.5
-            player.vel_x = player.vel_y = 0
-            mapa, entities, map_image = loadLevel('assets/maps/map1.png')
-            mapa_bonus, entities_bonus, map_image_bonus = loadLevel('assets/maps/mapA.png')
-            mapa = [mapa, mapa_bonus]
-            entities = [entities, entities_bonus]
+            
+            
+            popped = 0
+            for i in range(len(entities[player.bonus])):
+                index = i + popped
+                entity = entities[player.bonus][index]
+                if entity.status != 'dead':
+                    entity.renderSprite(frame, sprites, player, horizontal_res, vertical_res, mapa[player.bonus])
+                    if entity.status != 'dying':
+                        entity.update(mapa[player.bonus], player, entities[player.bonus], sounds, GetTile)
+                
+                    if i > 0 and entity.dist2player > entities[player.bonus][index-1].dist2player:# soft sort entities for drawing
+                        entities[player.bonus][index-1], entities[player.bonus][index] = entities[player.bonus][index], entities[player.bonus][index-1] # may take a few frames...
+                
+                elif entities[player.bonus][index].status == 'dead':
+                    entities[player.bonus].pop(index) # remove dead
+                    popped -= 1
+            
+            player.update(mapa[player.bonus], entities[player.bonus], sounds, GetTile)
 
-            if player.lives < 1:
-                texts[1]= 'You died with '+str(player.points)+ ' points'
-                await textScreen(screen, font, texts)
-                player = Player()
+            if player.y < 0 or player.status < 0:
+                sounds['die'].play()
+                player.status = 0
+                player.lives -= 1
+                player.x = 3.5
+                player.y = 12.5
+                player.vel_x = player.vel_y = 0
+                mapa, entities, map_image = loadLevel('assets/maps/map1.png')
+                mapa_bonus, entities_bonus, map_image_bonus = loadLevel('assets/maps/mapA.png')
+                mapa = [mapa, mapa_bonus]
+                entities = [entities, entities_bonus]
 
-        
-        for event in pg.event.get():
-            if event.type == pg.QUIT or (event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE):
-                running = 0
-        
-        if player.bonus:
-            frame.blit(dark, (0,0))
+                if player.lives < 1:
+                    texts[1]= 'You died with '+str(player.points)+ ' points'
+                    await textScreen(screen, font, texts)
+                    player = Player()
+
+            
+            for event in pg.event.get():
+                if event.type == pg.QUIT or (event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE):
+                    running = 0
+            
+            if player.bonus == 1:
+                frame.blit(dark, (0,0))
 
         # render2D(frame, map_image, player, entities[player.bonus]) # for debug to see where are player and entities
         
@@ -210,13 +223,13 @@ def loadAssets(horizontal_res, vertical_res):
                          pg.image.load('assets/sprites/poletop.png').convert_alpha()],
             }
     sounds = {  'break': pg.mixer.Sound('assets/sounds/break.ogg'),
-                'coin': pg.mixer.Sound('assets/sounds/coin.wav'),
+                'coin': pg.mixer.Sound('assets/sounds/coin.ogg'),
                 'die': pg.mixer.Sound('assets/sounds/die.wav'),
-                'item': pg.mixer.Sound('assets/sounds/item.wav'),
+                'item': pg.mixer.Sound('assets/sounds/item.ogg'),
                 'jump': pg.mixer.Sound('assets/sounds/jump.ogg'),
                 'kill': pg.mixer.Sound('assets/sounds/kill.wav'),
                 'pipe': pg.mixer.Sound('assets/sounds/pipe.ogg'),
-                'pole': pg.mixer.Sound('assets/sounds/pole.wav'),
+                'pole': pg.mixer.Sound('assets/sounds/pole.ogg'),
                 'powerup': pg.mixer.Sound('assets/sounds/powerup.ogg'),
                 'shoot': pg.mixer.Sound('assets/sounds/shoot.ogg'),
 
@@ -242,6 +255,7 @@ async def textScreen(screen, font, texts):
                 return 0
         
         await asyncio.sleep(0)
+
 
 asyncio.run(main())
 
