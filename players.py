@@ -63,7 +63,7 @@ class Player:
         # Determine the player's forward velocity based on keyboard input
         forward = pressed_keys[ord('w')] - pressed_keys[ord('s')]       
 
-        if GetTile(self.x, self.y - self.delta-0.01, mapa) > 0:  # Check if there is floor
+        if GetTile(self.x, self.y - self.delta-0.05, mapa) > 0:  # Check if there is floor
             self.vel_y = 0
             if forward == 0:
                 self.vel_x = self.vel_x - self.partial_time*self.vel_x*15
@@ -106,7 +106,7 @@ class Player:
         else:
             self.vel_x = 0
             if GetTile(self.x + 1.5, self.y, mapa) == 7:
-                self.enterpipe = 10
+                self.bonus = 3
                 sounds['pipe'].play()
                 return 0
             if GetTile(self.x + 1.5, self.y, mapa) == 10:
@@ -125,18 +125,18 @@ class Player:
                 mapa[int(self.x)][int(self.y + 2)] = 0
                 sounds['item'].play()
                 if self.status == 0:
-                    entities.insert(0, Entity([3, int(self.x)+0.5, int(self.y) + 2])) # mushroom
-                elif self.status == 1:
-                    entities.insert(0, Entity([4, int(self.x)+0.5, int(self.y) + 2])) # flower
-                else:
-                    entities.insert(0, Entity([6, int(self.x)+0.5, int(self.y) + 2])) # life mushroom
+                    entities.insert(0, Entity([3, int(self.x)+0.5, int(self.y) + 2.35])) # mushroom
+                else: # elif self.status == 1:
+                    entities.insert(0, Entity([4, int(self.x)+0.5, int(self.y) + 2.35])) # flower
+                # else:
+                #     entities.insert(0, Entity([6, int(self.x)+0.5, int(self.y) + 2.35])) # life mushroom
             elif GetTile(self.x, self.y + 2, mapa) == -3:
                 mapa[int(self.x)][int(self.y + 2)] = 0
-                entities.insert(0, Entity([6, int(self.x)+0.5, int(self.y) + 2])) # life mushroom
+                entities.insert(0, Entity([6, int(self.x)+0.5, int(self.y) + 2.35])) # life mushroom
                 sounds['item'].play()
             elif GetTile(self.x, self.y + 2, mapa) == -5:
                 mapa[int(self.x)][int(self.y + 2)] = 0
-                entities.insert(0, Entity([7,  int(self.x)+0.5, int(self.y) + 2])) # star
+                entities.insert(0, Entity([7,  int(self.x)+0.5, int(self.y) + 2.35])) # star
                 sounds['item'].play()
             else:
                 self.coin(sounds)

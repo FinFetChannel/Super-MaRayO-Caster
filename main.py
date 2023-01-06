@@ -37,7 +37,7 @@ async def main():
 
     pg.event.set_grab(1)
     pg.mixer.music.load('assets/sounds/mario theme.ogg')
-    pg.mixer.music.play(-1, 0, 1000)
+    
         
     textures, sprites, misteries, sounds = loadAssets(horizontal_res, vertical_res)
     
@@ -57,9 +57,14 @@ async def main():
     hud_string = 'MARIO                                                      WORLD                          TIME'
     hud_text = font.render( hud_string, 1, [255, 255, 255])
     world_text = font.render('1-1', 1, [255, 255, 255])
+    texts = ['Super MaRayo Caster',
+             '',
+             'Click to Start']
+    await textScreen(screen, font, texts)
+    pg.mixer.music.play(-1, 0, 1000)
 
     while True:
-        player.partial_time = clock.tick(60)/1000
+        player.partial_time = min(0.2, clock.tick(60)/1000)
         player.total_time += player.partial_time
 
         player.update(mapa[player.bonus], entities[player.bonus], sounds, GetTile)
@@ -76,6 +81,15 @@ async def main():
                     pg.mixer.music.load('assets/sounds/mario theme.ogg')
                     pg.mixer.music.play(-1, 0, 1000)
                     sounds['pipe'].play()
+        elif player.bonus == 3:
+            texts[1]= 'You finished with '+str(player.points)+ ' points'
+            await textScreen(screen, font, texts)
+            player = Player()
+            mapa, entities, map_image = loadLevel('assets/maps/map1.png')
+            mapa_bonus, entities_bonus, map_image_bonus = loadLevel('assets/maps/mapA.png')
+            mapa = [mapa, mapa_bonus]
+            entities = [entities, entities_bonus]
+            pg.mixer.music.play(-1, 0, 1000)
 
         if player.total_time - player.animation > 0:
             player.animation = player.total_time + 0.2
@@ -117,7 +131,8 @@ async def main():
             entities = [entities, entities_bonus]
 
             if player.lives < 1:
-                print('restart game')
+                texts[1]= 'You died with '+str(player.points)+ ' points'
+                await textScreen(screen, font, texts)
                 player = Player()
 
         
@@ -194,20 +209,39 @@ def loadAssets(horizontal_res, vertical_res):
                 'pole': [pg.image.load('assets/sprites/pole.png').convert_alpha(), 
                          pg.image.load('assets/sprites/poletop.png').convert_alpha()],
             }
-    sounds = {  'break': pg.mixer.Sound('assets/sounds/break.wav'),
+    sounds = {  'break': pg.mixer.Sound('assets/sounds/break.ogg'),
                 'coin': pg.mixer.Sound('assets/sounds/coin.wav'),
                 'die': pg.mixer.Sound('assets/sounds/die.wav'),
                 'item': pg.mixer.Sound('assets/sounds/item.wav'),
-                'jump': pg.mixer.Sound('assets/sounds/jump.wav'),
+                'jump': pg.mixer.Sound('assets/sounds/jump.ogg'),
                 'kill': pg.mixer.Sound('assets/sounds/kill.wav'),
-                'pipe': pg.mixer.Sound('assets/sounds/pipe.wav'),
+                'pipe': pg.mixer.Sound('assets/sounds/pipe.ogg'),
                 'pole': pg.mixer.Sound('assets/sounds/pole.wav'),
-                'powerup': pg.mixer.Sound('assets/sounds/powerup.wav'),
-                'shoot': pg.mixer.Sound('assets/sounds/shoot.wav'),
+                'powerup': pg.mixer.Sound('assets/sounds/powerup.ogg'),
+                'shoot': pg.mixer.Sound('assets/sounds/shoot.ogg'),
 
             }
 
     return textures, sprites, misteries, sounds
+
+async def textScreen(screen, font, texts):
+    while 1:
+        screen.fill((0,0,0))
+        y_coord = 100
+        for text in texts:
+            text_surf = font.render(text, 1, [255, 255, 255])
+            screen.blit(text_surf, (100, y_coord))
+            y_coord += 100
+
+        mouse_pos = pg.mouse.get_pos()
+        pg.draw.polygon(screen, (255,0,0), [mouse_pos, [mouse_pos[0], mouse_pos[1]+15],  [mouse_pos[0] +10, mouse_pos[1]+10]])
+        pg.display.update()
+
+        for event in pg.event.get():
+            if event.type == pg.MOUSEBUTTONDOWN:
+                return 0
+        
+        await asyncio.sleep(0)
 
 asyncio.run(main())
 

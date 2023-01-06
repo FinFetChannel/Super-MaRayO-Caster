@@ -9,81 +9,107 @@ class Entity:
         self.type = types[data[0]-1]
         self.x = data[1]
         self.y = data[2]
+        self.vel_x = 0
         self.vel_y = 0
-        self.direction = -1
+        self.direction = 1
         self.dist2player = 1
-        self.status = 'walking'
+        self.status = 'alive'
+        self.jump = 0
+        self.interact_player = 1
+        self.interact_entities = 1
+        self.interact_world = 1
+        self.falls = 1
 
-        if self.type in ['mushroom', 'fireball', 'life', 'star']:
-            self.direction = 1
-            if self.type in ['mushroom', 'life']:
-                self.status = 'mushing' # whatever mushrooms do
-            
-        if self.type in ['flower', 'pole', 'coin']:
-            self.status = 'sitting'
-        if self.type == 'pole' and self.y > 10:
-                self.direction = 1
-        elif self.type == 'fireball':
-            self.status = 'sliding'
-            self.vel_y = 1
-        elif self.type == 'star':
-            self.vel_y = 4
+        match self.type:
+            case 'goomba':
+                self.vel_x = 2
+                self.direction = -1
+                self.falls = 0
+            case 'koopa':
+                self.vel_x = 2
+                self.direction = -1
+                self.falls = 0
+            case 'mushroom':
+                self.vel_x = 3
+                self.interact_entities = 0
+            case 'flower':
+                self.interact_entities = 0
+                self.interact_world = 0
+            case 'life':
+                self.vel_x = 3
+                self.interact_entities = 0
+            case 'star':
+                self.vel_x = 3
+                self.vel_y = 1
+                self.jump = 1
+                self.interact_entities = 0
+            case 'fireball':
+                self.vel_x = 6
+                self.vel_y = 1.5
+                self.jump = 1
+                self.interact_player = 0
+                self.status = 'sliding'
+            case 'pole':
+                self.interact_entities = 0
+                self.interact_world = 0
+                if self.y < 10:
+                    self.direction = -1
+            case 'coin':
+                self.interact_entities = 0
+                self.interact_world = 0
+                self.direction = -1
+
         
     def update(self, mapa, player, entities, sounds, GetTile):
 
         if self.dist2player < 14:
-                             
-            self.player_interactions(player, GetTile, mapa, sounds)
+            if self.interact_player and self.status != 'dying':                 
+                self.playerInteractions(player, GetTile, mapa, sounds)
             
-            if self.type not in ['flower', 'pole', 'coin']:   
-                self.vel_y -= player.partial_time*4
-
-                newx = self.x
-                if self.status == 'walking':
-                    newx = self.x + self.direction*player.partial_time*2
-                elif self.status == 'mushing':
-                    newx = self.x + self.direction*player.partial_time*3
-                elif self.status == 'sliding':
-                    newx = self.x + self.direction*player.partial_time*5
-                    
-                elif self.status == 'inshell' and player.total_time - self.timer > 5:
-                    self.status = 'walking'
-
-                self.entities_interactions(entities, player, sounds)
-             
-                newy = self.y + self.vel_y*player.partial_time*2
-
-                if (GetTile(newx, self.y, mapa) < 1 and (GetTile(newx, self.y-1, mapa) > 0 or
-                    self.status == 'sliding' or self.dist2player < 10 or self.type == 'mushroom')):
-                    self.x = newx
-                elif self.type == 'fireball':
-                    self.status = 'dying'
-                    self.timer = player.total_time
-                    self.direction = -1
-                    sounds['break'].play()
-                elif GetTile(newx, self.y-1, mapa) > 0:
-                    self.direction = -self.direction
-                
-                if newy - 0.25 < 0: # fell off the cliff
-                    self.status = 'dead'
-                    sounds['kill'].play()
-                elif GetTile(self.x, newy - 0.25, mapa) < 1:
-                    self.y = newy
-                elif self.type in ['fireball', 'star']:
-                    self.vel_y *= -0.5
-                    if abs(self.vel_y) < 0.1 and self.type == 'fireball':
-                        self.status = 'dying'
-                        self.timer = player.total_time
-                        self.direction = -1
-                else:
-                    self.vel_y = 0
+            if self.interact_entities and self.status != 'dying':
+                self.entitiesInteractions(entities, player, sounds)
+            
+            if self.interact_world:
+                self.worldInteractions(player, GetTile, mapa, sounds)
+        
         elif self.type == 'fireball':
             self.status = 'dying'
             self.timer = player.total_time
             self.direction = -1
+    
+    def worldInteractions(self, player, GetTile, mapa, sounds):       
+        self.vel_y -= player.partial_time*4
+        newx = self.x + self.direction*player.partial_time*self.vel_x
+        newy = self.y + self.vel_y*player.partial_time*2
 
-    def player_interactions(self, player, GetTile, mapa, sounds):
-        if self.dist2player < 1:
+        if (GetTile(newx, self.y, mapa) < 1 and 
+            (GetTile(newx, self.y-1, mapa) > 0 or self.falls or self.dist2player < 10)):
+            self.x = newx
+        elif self.type == 'fireball':
+            self.status = 'dying'
+            self.timer = player.total_time
+            self.direction = -1
+            sounds['break'].play()
+        elif GetTile(newx, self.y-1, mapa) > 0:
+            self.direction = -self.direction
+        
+        if newy - 0.25 < 0: # fell off the cliff
+            self.status = 'dead'
+            sounds['kill'].play()
+        elif GetTile(self.x, newy - 0.25, mapa) < 1:
+            self.y = newy
+        elif self.jump:
+            self.vel_y *= -0.8
+        else:
+            self.vel_y = 0 
+        
+        if self.status == 'inshell' and self.timer < player.total_time:
+            self.status = 'alive'
+            self.vel_x = 2
+            self.falls = 0  
+
+    def playerInteractions(self, player, GetTile, mapa, sounds):
+        if self.dist2player < 0.75:
             if self.type in ['mushroom', 'flower']:
                 self.status = 'dead'
                 player.points += 1000
@@ -97,6 +123,7 @@ class Entity:
                 player.lives += 1
                 sounds['powerup'].play()
             elif self.type == 'star':
+                player.points += 1000
                 self.status = 'dead'
                 player.star = player.total_time + 20
                 sounds['powerup'].play()
@@ -119,21 +146,28 @@ class Entity:
                     sounds['die'].play()
 
             elif self.type == 'koopa':
-                if self.status in ['walking', 'sliding'] and (player.vel_y < 0 and player.y - 0.2 > self.y):
+                if self.status in ['alive', 'sliding'] and (player.vel_y < 0 and player.y - 0.2 > self.y):
                     player.vel_y = 4
                     self.status = 'inshell'
-                    self.timer = player.total_time
+                    self.timer = player.total_time + 5
+                    self.falls = 0
                     sounds['kill'].play()
+                    self.vel_x = 0
                 elif self.status == 'inshell':
-                    sounds['kill'].play()
-                    player.vel_y *= -0.5
-                    self.status = 'sliding'
-                    self.direction = 1
-                    if self.x < player.x:
-                        self.direction = 1
-                    if GetTile(self.x + self.direction*0.5, self.y, mapa) < 1: # initial push
-                        self.x = self.x + self.direction*0.5
-                elif player.total_time - player.hit > 0:
+                    if self.dist2player < 0.5:
+                        sounds['kill'].play()
+                        player.vel_y *= -0.5
+                        self.status = 'sliding'
+                        self.falls = 1
+                        self.vel_x = 5
+                        if self.x < player.x:
+                            self.direction = -1
+                        else:
+                            self.direction = 1
+                        if GetTile(self.x + self.direction*0.5, self.y, mapa) < 1: # initial push
+                            self.x = self.x + self.direction*0.5
+                    
+                elif player.total_time - player.hit > 0 and self.status != 'inshell':
                     player.status -= 1
                     player.hit = player.total_time + 3
                     sounds['die'].play()
@@ -158,10 +192,10 @@ class Entity:
 
                 
     
-    def entities_interactions(self, entities, player, sounds):
+    def entitiesInteractions(self, entities, player, sounds):
         for entity in entities:
-            if ((self.x != entity.x or self.y != entity.y) and entity.type not in ['pole', 'fireball'] 
-                and (self.x - entity.x)**2 + (self.y - entity.y)**2 < 0.5):
+            if ((self.x != entity.x or self.y != entity.y) and entity.interact_entities and 
+                (self.x - entity.x)**2 + (self.y - entity.y)**2 < 0.5):
 
                 if self.status == 'sliding':
                 
@@ -242,7 +276,7 @@ def vision(posx, posy, enx, eny, dist2player, mapa):
     for i in range(int(dist2player / 0.05)):
         x, y = x + 0.05 * cosine, y + 0.05 * sine        
         
-        if x >= 0 and y >= 0 and x < len(mapa) and y < len(mapa[0]) and mapa[int(x - 0.02)][int(y - 0.02)]:
+        if x >= 0 and y >= 0 and x < len(mapa) and y < len(mapa[0]) and mapa[int(x - 0.02)][int(y - 0.02)] > 0:
             return False # return false if the ray is blocked
     
     return True

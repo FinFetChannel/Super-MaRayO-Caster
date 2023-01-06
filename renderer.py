@@ -26,23 +26,23 @@ def rayCaster(player, mapa, frame, horizontal_res, vertical_res, mod, textures, 
         x, y = x + cos*n, y + sin*n
 
         for ray in range(300): # Coarse ray loop
-            # Check for collisions with the map and break if a collision is found
-            tile = GetTile(x + cos*5, y + sin*5, mapa)
+            
+            if x + cos*10< 0 or y+ sin*10 < 0 or x+ cos*10 > len(mapa) or y+ sin*10 > len(mapa[0]):
+                break
+            tile = GetTile(x + cos*10, y + sin*10, mapa)
             if tile != 0 and tile >= -1:# or GetTile(x + cos*10, y + sin*10, mapa) != 0:
                 break
-            # Update the position of the ray
-            x, y = (x + cos*5, y + sin*5)
-            # Increment the number of steps taken
-            n = n+5
+
+            x, y = (x + cos*10, y + sin*10)
+            n = n+10
 
         for ray in range(100): # Fine ray loop
-            # Update the position and number of steps taken
             x, y, n = x + cos, y + sin, n+1
             
-            # Get the block at the current position
+            if x < 0 or y < 0 or x > len(mapa) or y > len(mapa[0]):
+                break
             tile = GetTile(x, y, mapa)
             
-            # If a block was found, render it on the frame
             if tile != 0 and tile >= -1:
                 scale = horizontal_res/(step*n*0.6)#*math.cos(math.radians(i*mod-30)))
                 
@@ -84,15 +84,11 @@ def rayCaster(player, mapa, frame, horizontal_res, vertical_res, mod, textures, 
     return frame
 
 def render2D(frame, map_image, player, enemies):
-    # Draw the map image as the background of the frame
     frame.blit(map_image, (0, 0))
 
-    # Loop through the enemies and draw a pink pixel on the frame for each alive enemy
     for i in range(len(enemies)):
-        # if enemies[i].alive:
         frame.set_at((int(enemies[i].x), int(map_image.get_height() - enemies[i].y)), (255, 0, 255))            
 
-    # Draw the player pixel on the frame
     frame.set_at((int(player.x), int(map_image.get_height() - player.y)), (150, 150, 255))
 
 
