@@ -252,7 +252,7 @@ class Entity:
                     if  player.total_time - self.timer > 0.5:
                         self.status = 'dead'
 
-                scale =  min(200, vertical_res/(self.dist2player))#*math.cos(angle2)))
+                scale =  min(horizontal_res, vertical_res/(self.dist2player))#*math.cos(angle2)))
                 
                 # Calculate screen coordinates of the sprite
                 hor_coord = horizontal_res*(0.5 + player.roth) - scale*0.5

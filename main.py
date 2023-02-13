@@ -25,19 +25,23 @@ pg.mouse.set_visible(False)
 async def main():
     running = 1
     player = Player()
-
-    horizontal_res = 200
-    vertical_res = int(horizontal_res*0.75)
+    
+    vertical_res = 150
+    horizontal_res = int(vertical_res/3 + 1)*4
+    
     frame = pg.Surface([horizontal_res, vertical_res])
-    dark = pg.Surface(frame.get_size())
+    dark = frame.copy()
     dark.fill((0,0,0))
     dark.set_alpha(100)
     mod = 60/horizontal_res
-    step = mod*0.07
+    step = max(0.01, mod*0.07)
+    even = 0
+    progressive = 1
 
     pg.event.set_grab(1)
     pg.mixer.music.load('assets/sounds/mario theme.ogg')
-    
+    title = pg.image.load('assets/textures/smariocaster.jpg').convert()
+
         
     textures, sprites, misteries, sounds = loadAssets(horizontal_res, vertical_res)
     
@@ -57,11 +61,12 @@ async def main():
     hud_string = 'MARIO                                                      WORLD                          TIME'
     hud_text = font.render( hud_string, 1, [255, 255, 255])
     world_text = font.render('1-1', 1, [255, 255, 255])
-    texts = ['Super MaRayo Caster',
-             '',
+    texts = ['FinFET presents',
+             '','','',
              'Click to Start']
-    await textScreen(screen, font, texts)
+    await textScreen(screen, font, texts, title)
     pg.mixer.music.play(-1, 0, 1000)
+    pg.mixer.music.set_volume(0.5)
 
     while True:
         
@@ -77,6 +82,7 @@ async def main():
                     pg.mixer.music.unload()
                     pg.mixer.music.load('assets/sounds/mario theme.ogg')
                     pg.mixer.music.play(-1, 0, 1000)
+                    pg.mixer.music.set_volume(0.5)
                     sounds['pipe'].play()
 
         elif player.bonus == 3:
@@ -95,6 +101,7 @@ async def main():
             mapa = [mapa, mapa_bonus]
             entities = [entities, entities_bonus]
             pg.mixer.music.play(-1, 0, 1000)
+            pg.mixer.music.set_volume(0.5)
  
         if player.bonus < 2:
 
@@ -107,10 +114,10 @@ async def main():
                         for i in range(len(sprites[key])):
                             sprites[key][i] = pg.transform.flip(sprites[key][i], flip_x=True, flip_y=False)
             
-            player.partial_time = min(0.2, clock.tick(60)/1000)
+            player.partial_time = min(0.2, clock.tick()/1000)
             player.total_time += player.partial_time
-            frame = rayCaster(player, mapa[player.bonus], frame, horizontal_res, vertical_res, mod, textures, step, GetTile)
-
+            frame = rayCaster(player, mapa[player.bonus], frame, horizontal_res, vertical_res, mod, textures, step, GetTile, even, progressive)
+            even = (even+1)%2
             
             
             popped = 0
@@ -150,25 +157,33 @@ async def main():
 
             
             for event in pg.event.get():
-                if event.type == pg.QUIT or (event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE):
+                if event.type == pg.QUIT:
                     running = 0
-            
+                if event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
+                    progressive, vertical_res = await optionsScreen(screen, font, progressive, vertical_res, clock, frame)
+                    horizontal_res = int(vertical_res/3 + 1)*4
+                    frame = pg.Surface([horizontal_res, vertical_res])
+                    dark = frame.copy()
+                    dark.fill((0,0,0))
+                    dark.set_alpha(100)
+                    mod = 60/horizontal_res
+                    step = max(0.01, mod*0.07)
+                    textures[0] = pg.transform.scale(pg.image.load('assets/textures/skybox.jpg').convert(), (horizontal_res*2, 6*vertical_res))
+
             if player.bonus == 1:
                 frame.blit(dark, (0,0))
 
         # render2D(frame, map_image, player, entities[player.bonus]) # for debug to see where are player and entities
         
-        
-        upscaled = pg.transform.scale(frame, [800,600])
-        
+        upscaled = pg.transform.scale(frame, screen.get_size())
         upscaled.blit(font.render(str(round(clock.get_fps(),1)), 1, [255, 255, 255]), [750, 5])
-
         upscaled.blit(hud_text, [50, 5])
 
 
         display_points = (6-len(str(player.points)))*'0'+str(player.points)
         display_coins = 'x' + (2-len(str(player.coins)))*'0'+str(player.coins)
         display_timer = str(400 - int(player.total_time*2))
+
         upscaled.blit(font.render(display_points, 1, [255, 255, 255]), [50,25])
         upscaled.blit(font.render(display_coins, 1, [255, 255, 255]), [300,25])
         upscaled.blit(world_text, [460,25])
@@ -237,13 +252,14 @@ def loadAssets(horizontal_res, vertical_res):
 
     return textures, sprites, misteries, sounds
 
-async def textScreen(screen, font, texts):
+async def textScreen(screen, font, texts, frame):
     while 1:
-        screen.fill((0,0,0))
+        copyframe = pg.transform.scale(frame.copy(), screen.get_size())
+        screen.blit(copyframe, (0,0))
         y_coord = 100
         for text in texts:
             text_surf = font.render(text, 1, [255, 255, 255])
-            screen.blit(text_surf, (100, y_coord))
+            screen.blit(text_surf, (50, y_coord))
             y_coord += 100
 
         mouse_pos = pg.mouse.get_pos()
@@ -256,6 +272,29 @@ async def textScreen(screen, font, texts):
         
         await asyncio.sleep(0)
 
+async def optionsScreen(screen, font, progressive, vertical_res, clock, frame):
+    # vertical_res = vertical_res*2
+    while 1:
+        copyframe = pg.transform.scale(frame.copy(), screen.get_size())
+        screen.blit(copyframe, (0,0))
+        time = clock.tick(30)
+        y_coord = 100
+        text_surf = font.render('text', 1, [255, 255, 255])
+        screen.blit(text_surf, (100, y_coord))
+
+        mouse_pos = pg.mouse.get_pos()
+        pg.draw.polygon(screen, (255,0,0), [mouse_pos, [mouse_pos[0], mouse_pos[1]+15],  [mouse_pos[0] +10, mouse_pos[1]+10]])
+        pg.display.update()
+
+        for event in pg.event.get():
+            if event.type == pg.MOUSEBUTTONDOWN:
+                return progressive, vertical_res
+            if event.type == pg.QUIT:
+                pg.quit()
+            if event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
+                return progressive, vertical_res
+        
+        await asyncio.sleep(0)
 
 asyncio.run(main())
 
